@@ -1,7 +1,7 @@
-import { WebmunkConfiguration } from '@bric/webmunk-core/extension'
-import webmunkCorePlugin, { WebmunkServiceWorkerModule, registerWebmunkModule } from '@bric/webmunk-core/service-worker'
+import { REXConfiguration } from '@bric/rex-core/extension'
+import rexCorePlugin, { REXServiceWorkerModule, registerREXModule } from '@bric/rex-core/service-worker'
 
-class WebmunkDefaultPageModule extends WebmunkServiceWorkerModule {
+class WebmunkDefaultPageModule extends REXServiceWorkerModule {
   initialPage:string
   defaultPage:string
   listenerAdded:boolean = false
@@ -15,8 +15,8 @@ class WebmunkDefaultPageModule extends WebmunkServiceWorkerModule {
   }
 
   refreshConfiguration() {
-    webmunkCorePlugin.fetchConfiguration()
-      .then((configuration:WebmunkConfiguration) => {
+    rexCorePlugin.fetchConfiguration()
+      .then((configuration:REXConfiguration) => {
         if (configuration !== undefined) {
           const defaultPageConfig = configuration['default_page']
 
@@ -74,6 +74,6 @@ class WebmunkDefaultPageModule extends WebmunkServiceWorkerModule {
 
 const plugin = new WebmunkDefaultPageModule()
 
-registerWebmunkModule(plugin)
+registerREXModule(plugin)
 
 export default plugin
