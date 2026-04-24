@@ -86,34 +86,24 @@ test.describe('REX Default Page', () => {
     expect(result.secondRunCount).toEqual(result.firstRunCount)
   })
 
-  test('empty new tab is redirected to default_page', async ({ context, serviceWorker }) => {
+  test('empty new tab is redirected to default_page', async ({ serviceWorker }) => {
     await loadConfig(serviceWorker, TEST_CONFIG)
     await waitForDefaultPageModuleReady(serviceWorker)
 
-    const redirectedUrl = await serviceWorker.evaluate(async () => {
+    const tabId = await serviceWorker.evaluate(async () => {
       const tab = await chrome.tabs.create({})
-
-      return new Promise<string>((resolve) => {
-        const startedAt = Date.now()
-        const poll = async () => {
-          const t = await chrome.tabs.get(tab.id)
-          const url = t.url || t.pendingUrl || ''
-          if (url.includes('example.org/default')) {
-            resolve(url)
-          } else if (Date.now() - startedAt > 5000) {
-            resolve(url)
-          } else {
-            setTimeout(poll, 100)
-          }
-        }
-        poll()
-      })
+      return tab.id
     })
 
-    expect(redirectedUrl).toContain('example.org/default')
+    await expect.poll(async () => {
+      return serviceWorker.evaluate(async (id) => {
+        const t = await chrome.tabs.get(id)
+        return t.url || t.pendingUrl || ''
+      }, tabId)
+    }, { timeout: 5000 }).toContain('example.org/default')
   })
 
-  test('enabled: false disables redirect', async ({ serviceWorker }) => {
+  test('enabled: false from the start disables redirect', async ({ serviceWorker }) => {
     const disabledConfig = {
       ...TEST_CONFIG,
       default_page: { ...TEST_CONFIG.default_page, enabled: false }
@@ -131,5 +121,43 @@ test.describe('REX Default Page', () => {
     })
 
     expect(finalUrl).not.toContain('example.org/default')
+    expect(finalUrl).toMatch(/chrome:\/\/(newtab|new-tab-page)\/?/)
+  })
+
+  test('toggling enabled true -> false removes the listener', async ({ serviceWorker }) => {
+    await loadConfig(serviceWorker, TEST_CONFIG)
+    await waitForDefaultPageModuleReady(serviceWorker)
+
+    const listenerWasAdded = await serviceWorker.evaluate(async () => {
+      return self.rexDefaultPagePlugin.listenerAdded === true
+    })
+    expect(listenerWasAdded).toBe(true)
+
+    await serviceWorker.evaluate(async () => {
+      self.rexDefaultPagePlugin.updateConfiguration({
+        enabled: false,
+        initial_page: 'https://example.org/initial',
+        default_page: 'https://example.org/default'
+      })
+    })
+
+    const listenerStateAfterDisable = await serviceWorker.evaluate(async () => {
+      return {
+        listenerAdded: self.rexDefaultPagePlugin.listenerAdded,
+        tabListener: self.rexDefaultPagePlugin.tabListener
+      }
+    })
+    expect(listenerStateAfterDisable.listenerAdded).toBe(false)
+    expect(listenerStateAfterDisable.tabListener).toBeNull()
+
+    const finalUrl = await serviceWorker.evaluate(async () => {
+      const tab = await chrome.tabs.create({})
+      await new Promise((r) => setTimeout(r, 1500))
+      const t = await chrome.tabs.get(tab.id)
+      return t.url || t.pendingUrl || ''
+    })
+
+    expect(finalUrl).not.toContain('example.org/default')
+    expect(finalUrl).toMatch(/chrome:\/\/(newtab|new-tab-page)\/?/)
   })
 })
