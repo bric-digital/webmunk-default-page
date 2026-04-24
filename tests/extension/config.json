@@ -1,0 +1,14 @@
+{
+    "configuration_url": "config.json",
+    "identifier": "rex-default-page-test",
+    "default_page": {
+        "enabled": true,
+        "initial_page": "https://example.com/initial",
+        "default_page": "https://example.com/default"
+    },
+    "ui": [{
+        "title": "REX Default Page Testing Extension",
+        "identifier": "main",
+        "default": true
+    }]
+}
