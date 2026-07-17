@@ -16,6 +16,13 @@ const EMPTY_TAB_URLS = [
   'edge://newtab'
 ]
 
+// New-tab-page URLs only — deliberately excludes about:blank. A tab navigating
+// to a real destination first emits a transient loading event with
+// changeInfo.url === 'about:blank' before the real URL commits, while a genuine
+// empty new tab reports chrome://newtab/ (never about:blank). Matching
+// about:blank at loading time therefore hijacks real navigations.
+const NEW_TAB_PAGE_URLS = EMPTY_TAB_URLS.filter((url) => url !== 'about:blank')
+
 class REXDefaultPageModule extends REXServiceWorkerModule {
   initialPage?:string
   defaultPage?:string
@@ -99,7 +106,7 @@ class REXDefaultPageModule extends REXServiceWorkerModule {
       this.tabUpdatedListener = (tabId, changeInfo, tab) => {
         if (changeInfo.status === 'loading') {
           const destination = changeInfo.url ?? tab.pendingUrl
-          if (destination !== undefined && EMPTY_TAB_URLS.includes(destination) && this.defaultPage !== undefined) {
+          if (destination !== undefined && NEW_TAB_PAGE_URLS.includes(destination) && this.defaultPage !== undefined) {
             chrome.tabs.update(tabId, { url: this.defaultPage })
           }
         }

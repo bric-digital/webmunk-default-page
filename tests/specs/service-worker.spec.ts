@@ -132,6 +132,36 @@ test.describe('REX Default Page', () => {
     expect(redirectedTo).toBeNull()
   })
 
+  test('a tab loading a real URL via a transient about:blank is not hijacked', async ({ serviceWorker }) => {
+    await loadConfig(serviceWorker, TEST_CONFIG)
+    await waitForDefaultPageModuleReady(serviceWorker)
+
+    const redirectedTo = await serviceWorker.evaluate(async () => {
+      let updatedTo = null
+      const originalUpdate = chrome.tabs.update
+      chrome.tabs.update = (_tabId, props) => {
+        updatedTo = props.url
+        return Promise.resolve({})
+      }
+
+      // Captured from real Chrome: a tab created to load a real destination first
+      // emits a 'loading' event whose changeInfo.url is the transient blank
+      // document 'about:blank', before the real URL commits. A genuine empty new
+      // tab instead reports chrome://newtab/, never about:blank. Matching
+      // about:blank here would hijack the real navigation to default_page.
+      self.rexDefaultPagePlugin.tabUpdatedListener(
+        123,
+        { status: 'loading', url: 'about:blank' },
+        { id: 123, url: 'about:blank' }
+      )
+
+      chrome.tabs.update = originalUpdate
+      return updatedTo
+    })
+
+    expect(redirectedTo).toBeNull()
+  })
+
   test('a tab whose destination is the new tab page is still redirected', async ({ serviceWorker }) => {
     await loadConfig(serviceWorker, TEST_CONFIG)
     await waitForDefaultPageModuleReady(serviceWorker)
